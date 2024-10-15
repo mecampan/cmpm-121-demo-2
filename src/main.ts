@@ -13,12 +13,6 @@ canvas.height = 256;
 document.body.appendChild(canvas);
 const pencil = canvas.getContext("2d");
 
-// Temp testing Button
-const temp = document.createElement("button");
-temp.id = "button";
-temp.textContent = "Temp";
-document.body.appendChild(temp);
-
 // When true, moving the mouse draws on the canvas
 let isDrawing = false;
 let x = 0;
