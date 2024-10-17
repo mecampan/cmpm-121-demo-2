@@ -13,55 +13,99 @@ canvas.height = 256;
 document.body.appendChild(canvas);
 const pencil = canvas.getContext("2d");
 
-// When true, moving the mouse draws on the canvas
-let isDrawing = false;
-let x = 0;
-let y = 0;
+if (!pencil) {
+  throw new Error("Failed to get canvas context");
+}
 
-// Add the event listeners for mousedown, mousemove, and mouseup
+let isDrawing = false;
+let drawing: Array<Array<{ x: number, y: number }>> = [];
+let currentLine: Array<{ x: number, y: number }> = [];
+let drawingIndex = 0;
+
 canvas.addEventListener("mousedown", (e) => {
-  x = e.offsetX;
-  y = e.offsetY;
   isDrawing = true;
+  currentLine = [{ x: e.offsetX, y: e.offsetY }];
+  drawing.splice(drawingIndex);
+  drawing.push(currentLine);
+  drawingIndex = drawing.length;
 });
 
 canvas.addEventListener("mousemove", (e) => {
   if (isDrawing) {
-    drawLine(pencil, x, y, e.offsetX, e.offsetY);
-    x = e.offsetX;
-    y = e.offsetY;
+    const point = { x: e.offsetX, y: e.offsetY };
+    currentLine.push(point);
+    drawCanvas(pencil, drawing.slice(0, drawingIndex));
   }
 });
 
-window.addEventListener("mouseup", (e) => {
+window.addEventListener("mouseup", () => {
   if (isDrawing) {
-    drawLine(pencil, x, y, e.offsetX, e.offsetY);
-    x = 0;
-    y = 0;
     isDrawing = false;
+    drawingIndex = drawing.length;
+    canvas.dispatchEvent(new Event("drawing-changed"));
   }
 });
 
-function drawLine(pencil, x1, y1, x2, y2) {
-  pencil.beginPath();
-  pencil.strokeStyle = "black";
-  pencil.lineWidth = 1;
-  pencil.moveTo(x1, y1);
-  pencil.lineTo(x2, y2);
-  pencil.stroke();
-  pencil.closePath();
+canvas.addEventListener("drawing-changed", () => {
+  drawCanvas(pencil, drawing.slice(0, drawingIndex));
+});
+
+function drawCanvas(pencil: CanvasRenderingContext2D, lines: Array<Array<{ x: number, y: number }>>) {
+  clearCanvas(pencil);
+  for (const line of lines) {
+    if (line.length > 0) {
+      pencil.beginPath();
+      pencil.moveTo(line[0].x, line[0].y);
+      for (const point of line) {
+        pencil.lineTo(point.x, point.y);
+      }
+      pencil.stroke();
+    }
+  }
 }
 
-// Clear Button
-const clearButton = document.createElement("button");
-clearButton.id = "button";
-clearButton.textContent = "Clear";
-document.body.appendChild(clearButton);
+function clearCanvas(pencil: CanvasRenderingContext2D) {
+  pencil.clearRect(0, 0, canvas.width, canvas.height);
+}
 
+const clearButton = document.createElement("button");
+clearButton.textContent = "Clear";
 clearButton.addEventListener("click", () => {
-    clearCanvas(pencil);
+  clearDrawing(pencil);
 });
 
-function clearCanvas(pencil) {
-    pencil.clearRect(0, 0, canvas.width, canvas.height);
+const undoButton = document.createElement("button");
+undoButton.textContent = "Undo";
+undoButton.addEventListener("click", () => {
+  undoLine(pencil);
+});
+
+const redoButton = document.createElement("button");
+redoButton.textContent = "Redo";
+redoButton.addEventListener("click", () => {
+  redoLine(pencil);
+});
+
+document.body.appendChild(clearButton);
+document.body.appendChild(undoButton);
+document.body.appendChild(redoButton);
+
+function clearDrawing(pencil: CanvasRenderingContext2D) {
+  clearCanvas(pencil);
+  drawing.length = 0;
+  drawingIndex = 0;
+}
+
+function undoLine(pencil: CanvasRenderingContext2D) {
+  if (drawingIndex > 0) {
+    drawingIndex--;
+    canvas.dispatchEvent(new Event("drawing-changed"));
+  }
+}
+
+function redoLine(pencil: CanvasRenderingContext2D) {
+  if (drawingIndex < drawing.length) {
+    drawingIndex++;
+    canvas.dispatchEvent(new Event("drawing-changed"));
+  }
 }
