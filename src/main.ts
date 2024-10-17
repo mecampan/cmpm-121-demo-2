@@ -20,35 +20,36 @@ if (!pencil) {
 let isDrawing = false;
 let drawing: Array<Array<{ x: number, y: number }>> = [];
 let currentLine: Array<{ x: number, y: number }> = [];
-let drawingIndex = 0;
+let redoStack: Array<Array<{ x: number, y: number }>> = [];
 
 canvas.addEventListener("mousedown", (e) => {
   isDrawing = true;
   currentLine = [{ x: e.offsetX, y: e.offsetY }];
-  drawing.splice(drawingIndex);
   drawing.push(currentLine);
-  drawingIndex = drawing.length;
 });
 
 canvas.addEventListener("mousemove", (e) => {
   if (isDrawing) {
     const point = { x: e.offsetX, y: e.offsetY };
     currentLine.push(point);
-    drawCanvas(pencil, drawing.slice(0, drawingIndex));
+    canvas.dispatchEvent(new Event("drawing-changed"));
   }
 });
 
 window.addEventListener("mouseup", () => {
   if (isDrawing) {
     isDrawing = false;
-    drawingIndex = drawing.length;
     canvas.dispatchEvent(new Event("drawing-changed"));
   }
 });
 
 canvas.addEventListener("drawing-changed", () => {
-  drawCanvas(pencil, drawing.slice(0, drawingIndex));
+  drawCanvas(pencil, drawing);
 });
+
+function clearCanvas(pencil: CanvasRenderingContext2D) {
+  pencil.clearRect(0, 0, canvas.width, canvas.height);
+}
 
 function drawCanvas(pencil: CanvasRenderingContext2D, lines: Array<Array<{ x: number, y: number }>>) {
   clearCanvas(pencil);
@@ -64,48 +65,50 @@ function drawCanvas(pencil: CanvasRenderingContext2D, lines: Array<Array<{ x: nu
   }
 }
 
-function clearCanvas(pencil: CanvasRenderingContext2D) {
-  pencil.clearRect(0, 0, canvas.width, canvas.height);
-}
-
 const clearButton = document.createElement("button");
 clearButton.textContent = "Clear";
 clearButton.addEventListener("click", () => {
-  clearDrawing(pencil);
+  clearDrawing();
 });
 
 const undoButton = document.createElement("button");
 undoButton.textContent = "Undo";
 undoButton.addEventListener("click", () => {
-  undoLine(pencil);
+  undoLine();
 });
 
 const redoButton = document.createElement("button");
 redoButton.textContent = "Redo";
 redoButton.addEventListener("click", () => {
-  redoLine(pencil);
+  redoLine();
 });
 
 document.body.appendChild(clearButton);
 document.body.appendChild(undoButton);
 document.body.appendChild(redoButton);
 
-function clearDrawing(pencil: CanvasRenderingContext2D) {
-  clearCanvas(pencil);
+function clearDrawing() {
   drawing.length = 0;
-  drawingIndex = 0;
+  redoStack.length = 0;
+  canvas.dispatchEvent(new Event("drawing-changed"));
 }
 
-function undoLine(pencil: CanvasRenderingContext2D) {
-  if (drawingIndex > 0) {
-    drawingIndex--;
-    canvas.dispatchEvent(new Event("drawing-changed"));
+function undoLine() {
+  if(drawing.length > 0) {
+    const lastLine = drawing.pop();
+    if (lastLine) {
+      redoStack.push(lastLine);
+      canvas.dispatchEvent(new Event("drawing-changed"));
+    }
   }
 }
 
-function redoLine(pencil: CanvasRenderingContext2D) {
-  if (drawingIndex < drawing.length) {
-    drawingIndex++;
-    canvas.dispatchEvent(new Event("drawing-changed"));
+function redoLine() {
+  if(redoStack.length > 0) {
+    const lastLine = redoStack.pop();
+    if (lastLine) {
+      drawing.push(lastLine);
+      canvas.dispatchEvent(new Event("drawing-changed"));
+    }
   }
 }
