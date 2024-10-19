@@ -19,11 +19,11 @@ if (!pencil) {
 
 class MarkerLine {
   private points: { x: number, y: number }[] = [];
-  private thickness: number; // Store thickness directly
+  private thickness: number;
 
   constructor(initialX: number, initialY: number, thickness: number) {
     this.points.push({ x: initialX, y: initialY });
-    this.thickness = thickness; // Capture thickness at creation
+    this.thickness = thickness;
   }
 
   drag(x: number, y: number): void {
@@ -31,19 +31,22 @@ class MarkerLine {
   }
 
   display(ctx: CanvasRenderingContext2D): void {
-    ctx.lineWidth = this.thickness; // Use stored thickness
-    ctx.beginPath();
+    ctx.lineWidth = this.thickness;
+    ctx.strokeStyle = 'black'; // Set desired color for line
+    ctx.fillStyle = 'black';   // Ensure fill uses the same color
+
     if (this.points.length > 1) {
+      ctx.beginPath();
       ctx.moveTo(this.points[0].x, this.points[0].y);
       for (let i = 1; i < this.points.length; i++) {
         ctx.lineTo(this.points[i].x, this.points[i].y);
       }
       ctx.stroke();
     } else {
-      // Draw a single dot if only one point
       const { x, y } = this.points[0];
+      ctx.beginPath();
       ctx.arc(x, y, this.thickness / 2, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.fill(); // Use fill() to draw circles with fillStyle
     }
   }
 }
@@ -52,7 +55,7 @@ class markerStyle {
   private thickness: number;
 
   constructor() {
-    this.thickness = 1;
+    this.thickness = 2;
   }
 
   setThickness(thickness: number) {
@@ -64,24 +67,60 @@ class markerStyle {
   }
 }
 
+class ToolPreview {
+  private x: number;
+  private y: number;
+  private thickness: number;
+
+  constructor(thickness: number) {
+    this.x = 0;
+    this.y = 0; 
+    this.thickness = thickness;
+  }
+
+  updatePosition(x: number, y: number) {
+    this.x = x;
+    this.y = y;
+  }
+
+  updateThickness(thickness: number) {
+    this.thickness = thickness;
+  }
+
+  draw(ctx: CanvasRenderingContext2D) {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.thickness / 2, 0, Math.PI * 2);
+    ctx.strokeStyle = 'gray'; // Example preview color
+    ctx.stroke();
+  }
+}
+
 let isDrawing = false;
 let drawing: Array<MarkerLine> = [];
 let redoStack: Array<MarkerLine> = [];
 let currentLine: MarkerLine | null = null;
-let markerOptions = new markerStyle(); // Instance is still needed to control new thickness
+let markerOptions = new markerStyle();
+let toolPreview: ToolPreview | null = null;
+toolPreview = new ToolPreview(markerOptions.getThickness());
 
 canvas.addEventListener("mousedown", (e) => {
   isDrawing = true;
-  const currentThickness = markerOptions.getThickness(); // Capture current thickness
+  const currentThickness = markerOptions.getThickness();
   currentLine = new MarkerLine(e.offsetX, e.offsetY, currentThickness);
-  currentLine.display(pencil);
   redoStack.length = 0;
 });
 
 canvas.addEventListener("mousemove", (e) => {
   if (isDrawing && currentLine) {
     currentLine.drag(e.offsetX, e.offsetY);
+    drawCanvas(pencil, drawing);
     currentLine.display(pencil);
+  } 
+  
+  else if (!isDrawing && toolPreview) {
+    toolPreview.updatePosition(e.offsetX, e.offsetY);
+    drawCanvas(pencil, drawing);
+    toolPreview.draw(pencil);
   }
 });
 
@@ -174,11 +213,17 @@ function redoLine() {
 }
 
 function setMarkerThin() {
-  markerOptions.setThickness(1); // Modify managed thickness
+  markerOptions.setThickness(2);
+  if (toolPreview) {
+    toolPreview.updateThickness(2);
+  }
 }
 
 function setMarkerThick() {
-  markerOptions.setThickness(5); // Modify managed thickness
+  markerOptions.setThickness(5);
+  if (toolPreview) {
+    toolPreview.updateThickness(5);
+  }
 }
 
 function toggleButton(button: HTMLButtonElement, otherButton: HTMLButtonElement): void {
