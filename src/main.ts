@@ -17,8 +17,12 @@ if (!pencil) {
   throw new Error("Failed to get canvas context");
 }
 
-class MarkerLine {
-  private points: { x: number, y: number }[] = [];
+interface Drawable {
+  display(ctx: CanvasRenderingContext2D): void;
+}
+
+class MarkerLine implements Drawable {
+  private points: { x: number; y: number }[] = [];
   private thickness: number;
 
   constructor(initialX: number, initialY: number, thickness: number) {
@@ -32,26 +36,42 @@ class MarkerLine {
 
   display(ctx: CanvasRenderingContext2D): void {
     ctx.lineWidth = this.thickness;
-    ctx.strokeStyle = 'black'; // Set desired color for line
-    ctx.fillStyle = 'black';   // Ensure fill uses the same color
-
+    ctx.strokeStyle = 'black';
+    ctx.beginPath();
     if (this.points.length > 1) {
-      ctx.beginPath();
       ctx.moveTo(this.points[0].x, this.points[0].y);
       for (let i = 1; i < this.points.length; i++) {
         ctx.lineTo(this.points[i].x, this.points[i].y);
       }
       ctx.stroke();
-    } else {
-      const { x, y } = this.points[0];
-      ctx.beginPath();
-      ctx.arc(x, y, this.thickness / 2, 0, Math.PI * 2);
-      ctx.fill(); // Use fill() to draw circles with fillStyle
     }
   }
 }
 
-class markerStyle {
+class StickerTool implements Drawable {
+  private x: number;
+  private y: number;
+  private sticker: string;
+
+  constructor(sticker: string) {
+    this.x = 0;
+    this.y = 0;
+    this.sticker = sticker;
+  }
+
+  updatePosition(x: number, y: number): void {
+    this.x = x;
+    this.y = y;
+  }
+
+  display(ctx: CanvasRenderingContext2D): void {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(this.sticker, this.x, this.y);
+  }
+}
+
+class MarkerStyle {
   private thickness: number;
 
   constructor() {
@@ -71,55 +91,72 @@ class ToolPreview {
   private x: number;
   private y: number;
   private thickness: number;
+  private sticker: string | null = null;
 
   constructor(thickness: number) {
     this.x = 0;
-    this.y = 0; 
+    this.y = 0;
     this.thickness = thickness;
   }
 
-  updatePosition(x: number, y: number) {
+  updatePosition(x: number, y: number): void {
     this.x = x;
     this.y = y;
   }
 
-  updateThickness(thickness: number) {
+  updateThickness(thickness: number): void {
     this.thickness = thickness;
   }
 
-  draw(ctx: CanvasRenderingContext2D) {
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.thickness / 2, 0, Math.PI * 2);
-    ctx.strokeStyle = 'gray'; // Example preview color
-    ctx.stroke();
+  updateSticker(sticker: string | null): void {
+    this.sticker = sticker;
+  }
+
+  draw(ctx: CanvasRenderingContext2D): void {
+    if (this.sticker) {
+      ctx.font = '20px Arial';
+      ctx.fillStyle = 'gray';
+      ctx.fillText(this.sticker, this.x, this.y);
+    } else {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.thickness / 2, 0, Math.PI * 2);
+      ctx.strokeStyle = 'gray';
+      ctx.stroke();
+    }
   }
 }
 
 let isDrawing = false;
-let drawing: Array<MarkerLine> = [];
-let redoStack: Array<MarkerLine> = [];
+let drawing: Array<Drawable> = [];
+let redoStack: Array<Drawable> = [];
 let currentLine: MarkerLine | null = null;
-let markerOptions = new markerStyle();
-let toolPreview: ToolPreview | null = null;
-toolPreview = new ToolPreview(markerOptions.getThickness());
+let markerOptions = new MarkerStyle();
+let toolPreview = new ToolPreview(markerOptions.getThickness());
+let activeSticker: string | null = null;
 
 canvas.addEventListener("mousedown", (e) => {
-  isDrawing = true;
-  const currentThickness = markerOptions.getThickness();
-  currentLine = new MarkerLine(e.offsetX, e.offsetY, currentThickness);
-  redoStack.length = 0;
+  if (activeSticker) {
+    const sticker = new StickerTool(activeSticker);
+    sticker.updatePosition(e.offsetX, e.offsetY);
+    drawing.push(sticker);
+    canvas.dispatchEvent(new Event("drawing-changed"));
+  } else {
+    isDrawing = true;
+    const currentThickness = markerOptions.getThickness();
+    currentLine = new MarkerLine(e.offsetX, e.offsetY, currentThickness);
+    redoStack.length = 0;
+  }
 });
 
 canvas.addEventListener("mousemove", (e) => {
+  const { offsetX, offsetY } = e;
   if (isDrawing && currentLine) {
-    currentLine.drag(e.offsetX, e.offsetY);
-    drawCanvas(pencil, drawing);
+    currentLine.drag(offsetX, offsetY);
+    drawCanvas(pencil);
     currentLine.display(pencil);
-  } 
-  
-  else if (!isDrawing && toolPreview) {
-    toolPreview.updatePosition(e.offsetX, e.offsetY);
-    drawCanvas(pencil, drawing);
+  } else {
+    toolPreview.updatePosition(offsetX, offsetY);
+    drawCanvas(pencil);
     toolPreview.draw(pencil);
   }
 });
@@ -134,17 +171,17 @@ window.addEventListener("mouseup", () => {
 });
 
 canvas.addEventListener("drawing-changed", () => {
-  drawCanvas(pencil, drawing);
+  drawCanvas(pencil);
 });
 
-function clearCanvas(pencil: CanvasRenderingContext2D) {
-  pencil.clearRect(0, 0, canvas.width, canvas.height);
+function clearCanvas(ctx: CanvasRenderingContext2D) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
-function drawCanvas(pencil: CanvasRenderingContext2D, lines: Array<MarkerLine>) {
-  clearCanvas(pencil);
-  for (const line of lines) {
-    line.display(pencil);
+function drawCanvas(ctx: CanvasRenderingContext2D) {
+  clearCanvas(ctx);
+  for (const drawable of drawing) {
+    drawable.display(ctx);
   }
 }
 
@@ -170,21 +207,59 @@ const thinMarkerButton = document.createElement("button");
 thinMarkerButton.textContent = "Thin Marker";
 thinMarkerButton.addEventListener("click", () => {
   setMarkerThin();
-  toggleButton(thinMarkerButton, thickMarkerButton);
+  activeSticker = null;
+  toolPreview.updateSticker(null);
+  toggleButton(thinMarkerButton, toggleButtons);
 });
 
 const thickMarkerButton = document.createElement("button");
 thickMarkerButton.textContent = "Thick Marker";
 thickMarkerButton.addEventListener("click", () => {
   setMarkerThick();
-  toggleButton(thickMarkerButton, thinMarkerButton);
+  activeSticker = null;
+  toolPreview.updateSticker(null);
+  toggleButton(thickMarkerButton, toggleButtons);
 });
+
+const smileStickerButton = document.createElement("button");
+smileStickerButton.textContent = "🙂";
+smileStickerButton.addEventListener("click", () => {
+  activeSticker = "🙂";
+  toolPreview.updateSticker(activeSticker);
+  toggleButton(smileStickerButton, toggleButtons);
+});
+
+const starStickerButton = document.createElement("button");
+starStickerButton.textContent = "⭐";
+starStickerButton.addEventListener("click", () => {
+  activeSticker = "⭐";
+  toolPreview.updateSticker(activeSticker);
+  toggleButton(starStickerButton, toggleButtons);
+});
+
+const catStickerButton = document.createElement("button");
+catStickerButton.textContent = "🐈";
+catStickerButton.addEventListener("click", () => {
+  activeSticker = "🐈";
+  toolPreview.updateSticker(activeSticker);
+  toggleButton(catStickerButton, toggleButtons);
+});
+
+let toggleButtons: Array<HTMLButtonElement> = [];
+toggleButtons.push(thinMarkerButton);
+toggleButtons.push(thickMarkerButton);
+toggleButtons.push(smileStickerButton);
+toggleButtons.push(starStickerButton);
+toggleButtons.push(catStickerButton);
 
 document.body.appendChild(clearButton);
 document.body.appendChild(undoButton);
 document.body.appendChild(redoButton);
 document.body.appendChild(thinMarkerButton);
 document.body.appendChild(thickMarkerButton);
+document.body.appendChild(smileStickerButton);
+document.body.appendChild(starStickerButton);
+document.body.appendChild(catStickerButton);
 
 function clearDrawing() {
   drawing.length = 0;
@@ -194,9 +269,9 @@ function clearDrawing() {
 
 function undoLine() {
   if (drawing.length > 0) {
-    const lastLine = drawing.pop();
-    if (lastLine) {
-      redoStack.push(lastLine);
+    const lastDrawable = drawing.pop();
+    if (lastDrawable) {
+      redoStack.push(lastDrawable);
       canvas.dispatchEvent(new Event("drawing-changed"));
     }
   }
@@ -204,9 +279,9 @@ function undoLine() {
 
 function redoLine() {
   if (redoStack.length > 0) {
-    const lastLine = redoStack.pop();
-    if (lastLine) {
-      drawing.push(lastLine);
+    const lastDrawable = redoStack.pop();
+    if (lastDrawable) {
+      drawing.push(lastDrawable);
       canvas.dispatchEvent(new Event("drawing-changed"));
     }
   }
@@ -214,19 +289,20 @@ function redoLine() {
 
 function setMarkerThin() {
   markerOptions.setThickness(2);
-  if (toolPreview) {
-    toolPreview.updateThickness(2);
-  }
+  toolPreview.updateThickness(2);
 }
 
 function setMarkerThick() {
   markerOptions.setThickness(5);
-  if (toolPreview) {
-    toolPreview.updateThickness(5);
-  }
+  toolPreview.updateThickness(5);
 }
 
-function toggleButton(button: HTMLButtonElement, otherButton: HTMLButtonElement): void {
-  button.classList.add('active');
-  otherButton.classList.remove('active');
+function toggleButton(button: HTMLButtonElement, buttonArray: Array<HTMLButtonElement>): void {
+  buttonArray.forEach(element => {
+    if (element.textContent == button.textContent) {
+      element.classList.add('active');
+    } else {
+      element.classList.remove('active');
+    }
+  });
 }
