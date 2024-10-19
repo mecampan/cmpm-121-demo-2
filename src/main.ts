@@ -19,9 +19,11 @@ if (!pencil) {
 
 class MarkerLine {
   private points: { x: number, y: number }[] = [];
+  private thickness: number; // Store thickness directly
 
-  constructor(initialX: number, initialY: number) {
+  constructor(initialX: number, initialY: number, thickness: number) {
     this.points.push({ x: initialX, y: initialY });
+    this.thickness = thickness; // Capture thickness at creation
   }
 
   drag(x: number, y: number): void {
@@ -29,18 +31,36 @@ class MarkerLine {
   }
 
   display(ctx: CanvasRenderingContext2D): void {
+    ctx.lineWidth = this.thickness; // Use stored thickness
     ctx.beginPath();
-    if (this.points.length === 1) {
-      const { x, y } = this.points[0];
-      ctx.arc(x, y, 1, 0, Math.PI * 2); // Draw a dot if it's the start
-      ctx.fill();
-    } else if (this.points.length > 1) {
+    if (this.points.length > 1) {
       ctx.moveTo(this.points[0].x, this.points[0].y);
       for (let i = 1; i < this.points.length; i++) {
         ctx.lineTo(this.points[i].x, this.points[i].y);
       }
       ctx.stroke();
+    } else {
+      // Draw a single dot if only one point
+      const { x, y } = this.points[0];
+      ctx.arc(x, y, this.thickness / 2, 0, Math.PI * 2);
+      ctx.fill();
     }
+  }
+}
+
+class markerStyle {
+  private thickness: number;
+
+  constructor() {
+    this.thickness = 1;
+  }
+
+  setThickness(thickness: number) {
+    this.thickness = thickness;
+  }
+
+  getThickness() {
+    return this.thickness;
   }
 }
 
@@ -48,10 +68,12 @@ let isDrawing = false;
 let drawing: Array<MarkerLine> = [];
 let redoStack: Array<MarkerLine> = [];
 let currentLine: MarkerLine | null = null;
+let markerOptions = new markerStyle(); // Instance is still needed to control new thickness
 
 canvas.addEventListener("mousedown", (e) => {
   isDrawing = true;
-  currentLine = new MarkerLine(e.offsetX, e.offsetY);
+  const currentThickness = markerOptions.getThickness(); // Capture current thickness
+  currentLine = new MarkerLine(e.offsetX, e.offsetY, currentThickness);
   currentLine.display(pencil);
   redoStack.length = 0;
 });
@@ -105,9 +127,25 @@ redoButton.addEventListener("click", () => {
   redoLine();
 });
 
+const thinMarkerButton = document.createElement("button");
+thinMarkerButton.textContent = "Thin Marker";
+thinMarkerButton.addEventListener("click", () => {
+  setMarkerThin();
+  toggleButton(thinMarkerButton, thickMarkerButton);
+});
+
+const thickMarkerButton = document.createElement("button");
+thickMarkerButton.textContent = "Thick Marker";
+thickMarkerButton.addEventListener("click", () => {
+  setMarkerThick();
+  toggleButton(thickMarkerButton, thinMarkerButton);
+});
+
 document.body.appendChild(clearButton);
 document.body.appendChild(undoButton);
 document.body.appendChild(redoButton);
+document.body.appendChild(thinMarkerButton);
+document.body.appendChild(thickMarkerButton);
 
 function clearDrawing() {
   drawing.length = 0;
@@ -133,4 +171,17 @@ function redoLine() {
       canvas.dispatchEvent(new Event("drawing-changed"));
     }
   }
+}
+
+function setMarkerThin() {
+  markerOptions.setThickness(1); // Modify managed thickness
+}
+
+function setMarkerThick() {
+  markerOptions.setThickness(5); // Modify managed thickness
+}
+
+function toggleButton(button: HTMLButtonElement, otherButton: HTMLButtonElement): void {
+  button.classList.add('active');
+  otherButton.classList.remove('active');
 }
