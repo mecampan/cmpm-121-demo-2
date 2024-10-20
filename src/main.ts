@@ -185,81 +185,77 @@ function drawCanvas(ctx: CanvasRenderingContext2D) {
   }
 }
 
-const clearButton = document.createElement("button");
-clearButton.textContent = "Clear";
-clearButton.addEventListener("click", () => {
-  clearDrawing();
-});
+function initializeButtons() {
+  const buttonContainer = document.createElement("div");
+  buttonContainer.className = "button-container";
+  document.body.appendChild(buttonContainer);
 
-const undoButton = document.createElement("button");
-undoButton.textContent = "Undo";
-undoButton.addEventListener("click", () => {
-  undoLine();
-});
+  const actionButtonGroup = document.createElement("div");
+  actionButtonGroup.className = "button-group";
+  const markerButtonGroup = document.createElement("div");
+  markerButtonGroup.className = "button-group";
+  const stickerButtonGroup = document.createElement("div");
+  stickerButtonGroup.className = "button-group";
 
-const redoButton = document.createElement("button");
-redoButton.textContent = "Redo";
-redoButton.addEventListener("click", () => {
-  redoLine();
-});
+  buttonContainer.appendChild(actionButtonGroup);
+  buttonContainer.appendChild(markerButtonGroup);
+  buttonContainer.appendChild(stickerButtonGroup);
 
-const thinMarkerButton = document.createElement("button");
-thinMarkerButton.textContent = "Thin Marker";
-thinMarkerButton.addEventListener("click", () => {
-  setMarkerThin();
-  activeSticker = null;
-  toolPreview.updateSticker(null);
-  toggleButton(thinMarkerButton, toggleButtons);
-});
+  // Grouping buttons by function
+  const actionButtons = [
+    createButton('Clear', clearDrawing),
+    createButton('Undo', undoLine),
+    createButton('Redo', redoLine),
+  ];
 
-const thickMarkerButton = document.createElement("button");
-thickMarkerButton.textContent = "Thick Marker";
-thickMarkerButton.addEventListener("click", () => {
-  setMarkerThick();
-  activeSticker = null;
-  toolPreview.updateSticker(null);
-  toggleButton(thickMarkerButton, toggleButtons);
-});
+  const markerButtons = [
+    createButton('Thin Marker', function(this: HTMLButtonElement) {
+      setMarkerThickness(2);
+      toggleButton(this, markerButtons.concat(stickerButtons));
+    }),
+    createButton('Thick Marker', function(this: HTMLButtonElement) {
+      setMarkerThickness(5);
+      toggleButton(this, markerButtons.concat(stickerButtons));
+    }),
+  ];
 
-const smileStickerButton = document.createElement("button");
-smileStickerButton.textContent = "🙂";
-smileStickerButton.addEventListener("click", () => {
-  activeSticker = "🙂";
+  const stickerButtons = stickers.map(sticker =>
+    createButton(sticker.emoji, function(this: HTMLButtonElement) {
+      activeSticker = sticker.emoji;
+      toolPreview.updateSticker(activeSticker);
+      toggleButton(this, markerButtons.concat(stickerButtons));
+    })
+  ).concat([
+    createButton("Custom Sticker", function(this: HTMLButtonElement) {
+      addCustomSticker();
+      toggleButton(this, markerButtons.concat(stickerButtons));
+    })
+  ]);
+
+  actionButtons.forEach(button => actionButtonGroup.appendChild(button));
+  markerButtons.forEach(button => markerButtonGroup.appendChild(button));
+  stickerButtons.forEach(button => stickerButtonGroup.appendChild(button));
+}
+
+function createButton(text: string, onClick: (this: HTMLButtonElement) => void): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.textContent = text;
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+const stickers = [
+  { emoji: '🙂', name: 'Smile' },
+  { emoji: '⭐', name: 'Star' },
+  { emoji: '🐈', name: 'Cat' }
+];
+
+function addCustomSticker() {
+  const customSticker = prompt("Enter a custom sticker")
+  activeSticker = customSticker;
   toolPreview.updateSticker(activeSticker);
-  toggleButton(smileStickerButton, toggleButtons);
-});
+}
 
-const starStickerButton = document.createElement("button");
-starStickerButton.textContent = "⭐";
-starStickerButton.addEventListener("click", () => {
-  activeSticker = "⭐";
-  toolPreview.updateSticker(activeSticker);
-  toggleButton(starStickerButton, toggleButtons);
-});
-
-const catStickerButton = document.createElement("button");
-catStickerButton.textContent = "🐈";
-catStickerButton.addEventListener("click", () => {
-  activeSticker = "🐈";
-  toolPreview.updateSticker(activeSticker);
-  toggleButton(catStickerButton, toggleButtons);
-});
-
-let toggleButtons: Array<HTMLButtonElement> = [];
-toggleButtons.push(thinMarkerButton);
-toggleButtons.push(thickMarkerButton);
-toggleButtons.push(smileStickerButton);
-toggleButtons.push(starStickerButton);
-toggleButtons.push(catStickerButton);
-
-document.body.appendChild(clearButton);
-document.body.appendChild(undoButton);
-document.body.appendChild(redoButton);
-document.body.appendChild(thinMarkerButton);
-document.body.appendChild(thickMarkerButton);
-document.body.appendChild(smileStickerButton);
-document.body.appendChild(starStickerButton);
-document.body.appendChild(catStickerButton);
 
 function clearDrawing() {
   drawing.length = 0;
@@ -287,14 +283,12 @@ function redoLine() {
   }
 }
 
-function setMarkerThin() {
-  markerOptions.setThickness(2);
-  toolPreview.updateThickness(2);
-}
+function setMarkerThickness(thickness: number) {
+  activeSticker = null;
+  toolPreview.updateSticker(null);
 
-function setMarkerThick() {
-  markerOptions.setThickness(5);
-  toolPreview.updateThickness(5);
+  markerOptions.setThickness(thickness);
+  toolPreview.updateThickness(thickness);  
 }
 
 function toggleButton(button: HTMLButtonElement, buttonArray: Array<HTMLButtonElement>): void {
@@ -306,3 +300,5 @@ function toggleButton(button: HTMLButtonElement, buttonArray: Array<HTMLButtonEl
     }
   });
 }
+
+initializeButtons();

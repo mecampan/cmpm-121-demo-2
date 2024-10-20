@@ -90,6 +90,11 @@ button.active {
   background-color: #919191;
   color: #b1c6de;
 }
+.button-group {
+  display: flex;
+  justify-content: center; /* Align buttons horizontally within each group */
+  gap: 10px; /* Space between each button */
+}
 
 @media (prefers-color-scheme: light) {
   :root {
