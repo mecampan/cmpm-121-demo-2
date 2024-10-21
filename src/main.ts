@@ -190,64 +190,113 @@ function initializeButtons() {
   buttonContainer.className = "button-container";
   document.body.appendChild(buttonContainer);
 
-  const actionButtonGroup = document.createElement("div");
-  actionButtonGroup.className = "button-group";
-  const markerButtonGroup = document.createElement("div");
-  markerButtonGroup.className = "button-group";
-  const stickerButtonGroup = document.createElement("div");
-  stickerButtonGroup.className = "button-group";
-  const exportButtonGroup = document.createElement("div");
-  stickerButtonGroup.className = "button-group";
+  const actionButtonGroup = createActionButtons();
+  const markerButtonGroup = createMarkerButtons();
+  const stickerButtonGroup = createStickerButtons();
+  const customStickerContainer = createCustomStickerButtonContainer();
+  const exportButtonGroup = createExportButtons();
 
-  buttonContainer.appendChild(actionButtonGroup);
-  buttonContainer.appendChild(markerButtonGroup);
-  buttonContainer.appendChild(stickerButtonGroup);
-  buttonContainer.appendChild(exportButtonGroup);
-
-  // Grouping buttons by function
-  const actionButtons = [
-    createButton('Clear', clearDrawing),
-    createButton('Undo', undoLine),
-    createButton('Redo', redoLine),
-  ];
-
-  const markerButtons = [
-    createButton('Thin Marker', function(this: HTMLButtonElement) {
-      setMarkerThickness(2);
-      toggleButton(this, markerButtons.concat(stickerButtons));
-    }),
-    createButton('Thick Marker', function(this: HTMLButtonElement) {
-      setMarkerThickness(5);
-      toggleButton(this, markerButtons.concat(stickerButtons));
-    }),
-  ];
-
-  const stickerButtons = stickers.map(sticker =>
-    createButton(sticker.emoji, function(this: HTMLButtonElement) {
-      activeSticker = sticker.emoji;
-      toolPreview.updateSticker(activeSticker);
-      toggleButton(this, markerButtons.concat(stickerButtons));
-    })
-  ).concat([
-    createButton("Custom Sticker", function(this: HTMLButtonElement) {
-      addCustomSticker();
-      toggleButton(this, markerButtons.concat(stickerButtons));
-    })
-  ]);
-
-  const exportButtons = [
-    createButton('Export', exportPicture),
-  ];
-
-  actionButtons.forEach(button => actionButtonGroup.appendChild(button));
-  markerButtons.forEach(button => markerButtonGroup.appendChild(button));
-  stickerButtons.forEach(button => stickerButtonGroup.appendChild(button));
-  exportButtons.forEach(button => exportButtonGroup.appendChild(button));
+  buttonContainer.append(
+    actionButtonGroup, 
+    markerButtonGroup, 
+    stickerButtonGroup, 
+    customStickerContainer, 
+    exportButtonGroup
+  );
 }
 
-function createButton(text: string, onClick: (this: HTMLButtonElement) => void): HTMLButtonElement {
+function createActionButtons(): HTMLDivElement {
+  const actionButtonGroup = document.createElement("div");
+  actionButtonGroup.className = "button-group";
+
+  const actions = [
+    { label: 'Clear', action: clearDrawing },
+    { label: 'Undo', action: undoLine },
+    { label: 'Redo', action: redoLine }
+  ];
+
+  actions.forEach(action => {
+    const button = createButton(action.label, action.action);
+    actionButtonGroup.appendChild(button);
+  });
+
+  return actionButtonGroup;
+}
+
+function createMarkerButtons(): HTMLDivElement {
+  const markerButtonGroup = document.createElement("div");
+  markerButtonGroup.className = "button-group";
+
+  const markers = [
+    { label: 'Thin Marker', thickness: 2 },
+    { label: 'Thick Marker', thickness: 5 },
+    { label: 'THICC Marker', thickness: 10 }
+  ];
+
+  markers.forEach(marker => {
+    const button = createButton(marker.label, function() {
+      setMarkerThickness(marker.thickness);
+      toggleButton(this);
+    });
+    markerButtonGroup.appendChild(button);
+  });
+
+  return markerButtonGroup;
+}
+
+function createStickerButtons(): HTMLDivElement {
+  const stickerButtonGroup = document.createElement("div");
+  stickerButtonGroup.className = "button-group";
+
+  stickers.forEach(sticker => {
+    const button = createButton(sticker.emoji, function() {
+      activeSticker = sticker.emoji;
+      toolPreview.updateSticker(activeSticker);
+      toggleButton(this);
+    });
+    stickerButtonGroup.appendChild(button);
+  });
+
+  return stickerButtonGroup;
+}
+
+function createCustomStickerButtonContainer(): HTMLDivElement {
+  const customStickerContainer = document.createElement("div");
+  customStickerContainer.className = "button-group";
+
+  const customStickerButton = createButton("Custom Sticker", function() {
+    addCustomSticker(customStickerContainer);
+  });
+  customStickerContainer.appendChild(customStickerButton);
+
+  return customStickerContainer;
+}
+
+function createExportButtons(): HTMLDivElement {
+  const exportButtonGroup = document.createElement("div");
+  exportButtonGroup.className = "button-group";
+  
+  const exportButton = createButton('Export', exportPicture);
+  exportButtonGroup.appendChild(exportButton);
+
+  return exportButtonGroup;
+}
+
+function addCustomSticker(container: HTMLElement) {
+  const customSticker = prompt("Enter a custom sticker");
+  if (customSticker && customSticker.trim()) {
+    const customButton = createButton(customSticker, function(this: HTMLButtonElement) {
+      activeSticker = customSticker;
+      toolPreview.updateSticker(activeSticker);
+      toggleButton(this);
+    });
+    container.appendChild(customButton);
+  }
+}
+
+function createButton(label: string, onClick: (this: HTMLButtonElement) => void): HTMLButtonElement {
   const button = document.createElement("button");
-  button.textContent = text;
+  button.textContent = label;
   button.addEventListener("click", onClick);
   return button;
 }
@@ -257,13 +306,6 @@ const stickers = [
   { emoji: '⭐', name: 'Star' },
   { emoji: '🐈', name: 'Cat' }
 ];
-
-function addCustomSticker() {
-  const customSticker = prompt("Enter a custom sticker")
-  activeSticker = customSticker;
-  toolPreview.updateSticker(activeSticker);
-}
-
 
 function clearDrawing() {
   drawing.length = 0;
@@ -320,14 +362,13 @@ function exportPicture() {
   link.click();
 }
 
-function toggleButton(button: HTMLButtonElement, buttonArray: Array<HTMLButtonElement>): void {
-  buttonArray.forEach(element => {
-    if (element.textContent == button.textContent) {
-      element.classList.add('active');
-    } else {
-      element.classList.remove('active');
-    }
-  });
+function toggleButton(activeButton: HTMLButtonElement): void {
+  const buttonContainer = document.querySelector('.button-container');
+  if (buttonContainer) {
+    Array.from(buttonContainer.querySelectorAll('button')).forEach(button => {
+      button.classList.toggle('active', button === activeButton);
+    });
+  }
 }
 
 initializeButtons();
