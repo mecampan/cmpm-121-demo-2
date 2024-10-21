@@ -48,29 +48,6 @@ class MarkerLine implements Drawable {
   }
 }
 
-class StickerTool implements Drawable {
-  private x: number;
-  private y: number;
-  private sticker: string;
-
-  constructor(sticker: string) {
-    this.x = 0;
-    this.y = 0;
-    this.sticker = sticker;
-  }
-
-  updatePosition(x: number, y: number): void {
-    this.x = x;
-    this.y = y;
-  }
-
-  display(ctx: CanvasRenderingContext2D): void {
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(this.sticker, this.x, this.y);
-  }
-}
-
 class MarkerStyle {
   private thickness: number;
 
@@ -87,21 +64,70 @@ class MarkerStyle {
   }
 }
 
+// At this point here. Is where stuff is starting to get bugged
+class StickerTool implements Drawable {
+  private x: number;
+  private y: number;
+  private angle: number;
+  private sticker: string;
+
+  constructor(sticker: string) {
+    this.x = 0;
+    this.y = 0;
+    this.angle = 0;
+    this.sticker = sticker;
+  }
+
+  updatePosition(x: number, y: number): void {
+    this.x = x;
+    this.y = y;
+  }
+
+  setAngle(angle: number): void {
+    this.angle = angle;
+  }
+
+  getAngle() {
+    return this.angle;
+  }
+
+  display(ctx: CanvasRenderingContext2D): void {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate((this.angle * Math.PI) / 180); // Apply the rotation
+    ctx.font = '20px Arial'; // Ensure font size is set
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(this.sticker, 0, 0);
+    ctx.restore();
+  }
+}
+
 class ToolPreview {
   private x: number;
   private y: number;
+  private angle: number;
   private thickness: number;
   private sticker: string | null = null;
 
   constructor(thickness: number) {
     this.x = 0;
     this.y = 0;
+    this.angle = 0;
     this.thickness = thickness;
   }
 
   updatePosition(x: number, y: number): void {
     this.x = x;
     this.y = y;
+  }
+
+  setAngle(angle: number): void {
+    this.angle = angle;
+  }
+
+  getAngle() {
+    return this.angle;
   }
 
   updateThickness(thickness: number): void {
@@ -113,16 +139,29 @@ class ToolPreview {
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
+    ctx.save();
+  
+    const centerX = this.x;
+    const centerY = this.y;
+  
+    ctx.translate(centerX, centerY);
+    ctx.rotate((this.angle * Math.PI) / 180);
+  
     if (this.sticker) {
       ctx.font = '20px Arial';
       ctx.fillStyle = 'gray';
-      ctx.fillText(this.sticker, this.x, this.y);
-    } else {
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(this.sticker, 0, 0);
+    } 
+    else {
       ctx.beginPath();
-      ctx.arc(this.x, this.y, this.thickness / 2, 0, Math.PI * 2);
+      ctx.arc(0, 0, this.thickness / 2, 0, Math.PI * 2);
       ctx.strokeStyle = 'gray';
       ctx.stroke();
     }
+  
+    ctx.restore();
   }
 }
 
@@ -138,9 +177,11 @@ canvas.addEventListener("mousedown", (e) => {
   if (activeSticker) {
     const sticker = new StickerTool(activeSticker);
     sticker.updatePosition(e.offsetX, e.offsetY);
+    sticker.setAngle(toolPreview.getAngle()); // Align angle with ToolPreview
     drawing.push(sticker);
     canvas.dispatchEvent(new Event("drawing-changed"));
-  } else {
+  }
+  else {
     isDrawing = true;
     const currentThickness = markerOptions.getThickness();
     currentLine = new MarkerLine(e.offsetX, e.offsetY, currentThickness);
@@ -156,7 +197,7 @@ canvas.addEventListener("mousemove", (e) => {
     currentLine.display(pencil);
   } else {
     toolPreview.updatePosition(offsetX, offsetY);
-    drawCanvas(pencil);
+    canvas.dispatchEvent(new Event("drawing-changed"));
     toolPreview.draw(pencil);
   }
 });
@@ -169,6 +210,40 @@ window.addEventListener("mouseup", () => {
     canvas.dispatchEvent(new Event("drawing-changed"));
   }
 });
+
+function initializeRotationSlider() {
+  const rotationLabel = document.createElement('label');
+  rotationLabel.textContent = 'Rotate Slider';
+  rotationLabel.style.position = 'absolute';
+  rotationLabel.style.top = '400px';
+  rotationLabel.style.right = '230px';
+  document.body.appendChild(rotationLabel);
+
+  const rotationSlider = document.createElement('input');
+  rotationSlider.type = 'range';
+  rotationSlider.min = '0';
+  rotationSlider.max = '360';
+  rotationSlider.step = '1';
+  rotationSlider.value = toolPreview.getAngle().toString();
+
+  rotationSlider.style.position = 'absolute';
+  rotationSlider.style.top = '420px';
+  rotationSlider.style.right = '210px';
+
+  document.body.appendChild(rotationSlider);
+
+  rotationSlider.addEventListener('input', (event) => {
+      const newAngle = parseInt((<HTMLInputElement>event.target).value);
+      toolPreview.setAngle(newAngle);
+      toolPreview.draw(pencil!);
+      drawCanvas(pencil!);
+
+  });
+
+  drawCanvas(pencil!);
+  toolPreview.draw(pencil!);
+}
+initializeRotationSlider();
 
 canvas.addEventListener("drawing-changed", () => {
   drawCanvas(pencil);
@@ -230,7 +305,7 @@ function createMarkerButtons(): HTMLDivElement {
   const markers = [
     { label: 'Thin Marker', thickness: 2 },
     { label: 'Thick Marker', thickness: 5 },
-    { label: 'THICC Marker', thickness: 10 }
+    { label: 'THICC Marker', thickness: 20 }
   ];
 
   markers.forEach(marker => {
