@@ -196,10 +196,13 @@ function initializeButtons() {
   markerButtonGroup.className = "button-group";
   const stickerButtonGroup = document.createElement("div");
   stickerButtonGroup.className = "button-group";
+  const exportButtonGroup = document.createElement("div");
+  stickerButtonGroup.className = "button-group";
 
   buttonContainer.appendChild(actionButtonGroup);
   buttonContainer.appendChild(markerButtonGroup);
   buttonContainer.appendChild(stickerButtonGroup);
+  buttonContainer.appendChild(exportButtonGroup);
 
   // Grouping buttons by function
   const actionButtons = [
@@ -232,9 +235,14 @@ function initializeButtons() {
     })
   ]);
 
+  const exportButtons = [
+    createButton('Export', exportPicture),
+  ];
+
   actionButtons.forEach(button => actionButtonGroup.appendChild(button));
   markerButtons.forEach(button => markerButtonGroup.appendChild(button));
   stickerButtons.forEach(button => stickerButtonGroup.appendChild(button));
+  exportButtons.forEach(button => exportButtonGroup.appendChild(button));
 }
 
 function createButton(text: string, onClick: (this: HTMLButtonElement) => void): HTMLButtonElement {
@@ -289,6 +297,27 @@ function setMarkerThickness(thickness: number) {
 
   markerOptions.setThickness(thickness);
   toolPreview.updateThickness(thickness);  
+}
+
+function exportPicture() {
+  const exportCanvas = document.createElement("canvas");
+  exportCanvas.width = 1024;
+  exportCanvas.height = 1024;
+  const exportContext = exportCanvas.getContext("2d");
+
+  if (!exportContext) {
+    console.log("Failed to get export canvas context");
+    return;
+  }
+
+  exportContext.scale(4, 4);
+  drawCanvas(exportContext);
+
+  const dataURL = exportCanvas.toDataURL("image/png");
+  const link = document.createElement("a");
+  link.href = dataURL;
+  link.download = "exported_drawing.png";
+  link.click();
 }
 
 function toggleButton(button: HTMLButtonElement, buttonArray: Array<HTMLButtonElement>): void {

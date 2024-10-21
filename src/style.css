@@ -92,8 +92,8 @@ button.active {
 }
 .button-group {
   display: flex;
-  justify-content: center; /* Align buttons horizontally within each group */
-  gap: 10px; /* Space between each button */
+  justify-content: center;
+  gap: 10px;
 }
 
 @media (prefers-color-scheme: light) {
