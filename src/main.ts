@@ -12,6 +12,7 @@ canvas.width = 256;
 canvas.height = 256;
 document.body.appendChild(canvas);
 const pencil = canvas.getContext("2d");
+let mouseOut : boolean = true;
 
 if (!pencil) {
   throw new Error("Failed to get canvas context");
@@ -155,9 +156,12 @@ class ToolPreview {
       ctx.fillText(this.sticker, 0, 0);
     } 
     else {
+      ctx.strokeStyle = 'gray';
+      ctx.fillStyle = "gray";
+      ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.arc(0, 0, this.thickness / 2, 0, Math.PI * 2);
-      ctx.strokeStyle = 'gray';
+      ctx.fill();
       ctx.stroke();
     }
   
@@ -170,7 +174,7 @@ let drawing: Array<Drawable> = [];
 let redoStack: Array<Drawable> = [];
 let currentLine: MarkerLine | null = null;
 let markerOptions = new MarkerStyle();
-let toolPreview = new ToolPreview(markerOptions.getThickness());
+let toolPreview : ToolPreview = new ToolPreview(markerOptions.getThickness());
 let activeSticker: string | null = null;
 
 canvas.addEventListener("mousedown", (e) => {
@@ -189,6 +193,15 @@ canvas.addEventListener("mousedown", (e) => {
   }
 });
 
+canvas.addEventListener("mouseout", () => {
+  mouseOut = true;
+  canvas.dispatchEvent(new Event("drawing-changed"));
+});
+canvas.addEventListener("mouseenter", (e) => {
+  mouseOut = false;
+  canvas.dispatchEvent(new Event("drawing-changed"));
+});
+
 canvas.addEventListener("mousemove", (e) => {
   const { offsetX, offsetY } = e;
   if (isDrawing && currentLine) {
@@ -198,7 +211,6 @@ canvas.addEventListener("mousemove", (e) => {
   } else {
     toolPreview.updatePosition(offsetX, offsetY);
     canvas.dispatchEvent(new Event("drawing-changed"));
-    toolPreview.draw(pencil);
   }
 });
 
@@ -235,18 +247,18 @@ function initializeRotationSlider() {
   rotationSlider.addEventListener('input', (event) => {
       const newAngle = parseInt((<HTMLInputElement>event.target).value);
       toolPreview.setAngle(newAngle);
-      toolPreview.draw(pencil!);
-      drawCanvas(pencil!);
-
+      canvas.dispatchEvent(new Event("drawing-changed"))
   });
 
   drawCanvas(pencil!);
-  toolPreview.draw(pencil!);
 }
 initializeRotationSlider();
 
 canvas.addEventListener("drawing-changed", () => {
   drawCanvas(pencil);
+  if (!mouseOut) {
+    toolPreview.draw(pencil);
+  }
 });
 
 function clearCanvas(ctx: CanvasRenderingContext2D) {
@@ -258,6 +270,7 @@ function drawCanvas(ctx: CanvasRenderingContext2D) {
   for (const drawable of drawing) {
     drawable.display(ctx);
   }
+
 }
 
 function initializeButtons() {
@@ -313,6 +326,9 @@ function createMarkerButtons(): HTMLDivElement {
       setMarkerThickness(marker.thickness);
       toggleButton(this);
     });
+    if (marker.label === "Thin Marker") {
+      button.classList.toggle('active', true);
+    }
     markerButtonGroup.appendChild(button);
   });
 
