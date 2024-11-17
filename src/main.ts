@@ -22,6 +22,12 @@ interface Drawable {
   display(ctx: CanvasRenderingContext2D): void;
 }
 
+
+function toRadians(angle: number){
+  return ((angle * Math.PI)/180);
+}
+
+
 class MarkerLine implements Drawable {
   private points: { x: number; y: number }[] = [];
   private thickness: number;
@@ -95,7 +101,7 @@ class StickerTool implements Drawable {
   display(ctx: CanvasRenderingContext2D): void {
     ctx.save();
     ctx.translate(this.x, this.y);
-    ctx.rotate((this.angle * Math.PI) / 180); // Apply the rotation
+    ctx.rotate(toRadians(this.angle)); // Apply the rotation
     ctx.font = '20px Arial'; // Ensure font size is set
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -146,7 +152,7 @@ class ToolPreview {
     const centerY = this.y;
   
     ctx.translate(centerX, centerY);
-    ctx.rotate((this.angle * Math.PI) / 180);
+    ctx.rotate(toRadians(this.angle));
   
     if (this.sticker) {
       ctx.font = '20px Arial';
@@ -170,11 +176,11 @@ class ToolPreview {
 }
 
 let isDrawing = false;
-let drawing: Array<Drawable> = [];
-let redoStack: Array<Drawable> = [];
+const drawing: Array<Drawable> = [];
+const redoStack: Array<Drawable> = [];
 let currentLine: MarkerLine | null = null;
-let markerOptions = new MarkerStyle();
-let toolPreview : ToolPreview = new ToolPreview(markerOptions.getThickness());
+const markerOptions = new MarkerStyle();
+const toolPreview : ToolPreview = new ToolPreview(markerOptions.getThickness());
 let activeSticker: string | null = null;
 
 canvas.addEventListener("mousedown", (e) => {
@@ -197,7 +203,7 @@ canvas.addEventListener("mouseout", () => {
   mouseOut = true;
   canvas.dispatchEvent(new Event("drawing-changed"));
 });
-canvas.addEventListener("mouseenter", (e) => {
+canvas.addEventListener("mouseenter", () => {
   mouseOut = false;
   canvas.dispatchEvent(new Event("drawing-changed"));
 });
@@ -214,7 +220,7 @@ canvas.addEventListener("mousemove", (e) => {
   }
 });
 
-window.addEventListener("mouseup", () => {
+globalThis.addEventListener("mouseup", () => {
   if (isDrawing && currentLine) {
     isDrawing = false;
     drawing.push(currentLine);
